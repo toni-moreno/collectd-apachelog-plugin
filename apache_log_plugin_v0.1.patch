@@ -1,0 +1,122 @@
+diff --git configure.in configure.in
+index c4d9558..32194e7 100644
+--- configure.in
++++ configure.in
+@@ -5092,6 +5092,7 @@ m4_divert_once([HELP_ENABLE], [])
+ AC_PLUGIN([aggregation], [yes],                [Aggregation plugin])
+ AC_PLUGIN([amqp],        [$with_librabbitmq],  [AMQP output plugin])
+ AC_PLUGIN([apache],      [$with_libcurl],      [Apache httpd statistics])
++AC_PLUGIN([apachelog],   [yes],      	       [Apache log])
+ AC_PLUGIN([apcups],      [yes],                [Statistics of UPSes by APC])
+ AC_PLUGIN([apple_sensors], [$with_libiokit],   [Apple's hardware sensors])
+ AC_PLUGIN([aquaero],     [$with_libaquaero5],  [Aquaero's hardware sensors])
+@@ -5436,6 +5437,7 @@ Configuration:
+     aggregation . . . . . $enable_aggregation
+     amqp    . . . . . . . $enable_amqp
+     apache  . . . . . . . $enable_apache
++    apachelog . . . . . . $enable_apachelog
+     apcups  . . . . . . . $enable_apcups
+     aquaero . . . . . . . $enable_aquaero
+     apple_sensors . . . . $enable_apple_sensors
+diff --git src/Makefile.am src/Makefile.am
+index 59454dc..e82de1f 100644
+--- src/Makefile.am
++++ src/Makefile.am
+@@ -175,6 +175,19 @@ endif
+ collectd_DEPENDENCIES += apache.la
+ endif
+ 
++
++if BUILD_PLUGIN_APACHELOG
++pkglib_LTLIBRARIES += apachelog.la
++apachelog_la_SOURCES = apache-log.c
++apachelog_la_LDFLAGS = -module -avoid-version
++apachelog_la_CFLAGS = $(AM_CFLAGS)
++apachelog_la_LIBADD =
++collectd_LDADD += "-dlopen" apachelog.la
++collectd_DEPENDENCIES += apachelog.la
++endif
++
++
++
+ if BUILD_PLUGIN_APCUPS
+ pkglib_LTLIBRARIES += apcups.la
+ apcups_la_SOURCES = apcups.c
+diff --git src/types.db src/types.db
+index 3a5e207..9fb1322 100644
+--- src/types.db
++++ src/types.db
+@@ -206,3 +206,4 @@ arc_ratio		value:GAUGE:0:U
+ arc_size		current:GAUGE:0:U, target:GAUGE:0:U, minlimit:GAUGE:0:U, maxlimit:GAUGE:0:U
+ mysql_qcache		hits:COUNTER:0:U, inserts:COUNTER:0:U, not_cached:COUNTER:0:U, lowmem_prunes:COUNTER:0:U, queries_in_cache:GAUGE:0:U
+ mysql_threads		running:GAUGE:0:U, connected:GAUGE:0:U, cached:GAUGE:0:U, created:COUNTER:0:U
++http_perf               count:DERIVE:0:U, rt_avg:GAUGE:0:U, rt_max:GAUGE:0:U, rt_min:GAUGE:0:U
+diff --git src/utils_tail.c src/utils_tail.c
+index 0b31262..2f6bf73 100644
+--- src/utils_tail.c
++++ src/utils_tail.c
+@@ -34,6 +34,7 @@ struct cu_tail_s
+ 	char  *file;
+ 	FILE  *fh;
+ 	struct stat stat;
++	int  disable_seek_end_on_new;
+ };
+ 
+ static int cu_tail_reopen (cu_tail_t *obj)
+@@ -79,6 +80,8 @@ static int cu_tail_reopen (cu_tail_t *obj)
+    * is the first at all or the first after an error */
+   if ((obj->stat.st_ino == 0) || (obj->stat.st_ino == stat_buf.st_ino))
+     seek_end = 1;
++  /*needed when rotated log switch by example with apache rotatelogs tool*/
++  if (obj->disable_seek_end_on_new) seek_end=0;
+ 
+   fh = fopen (obj->file, "r");
+   if (fh == NULL)
+@@ -125,12 +128,18 @@ cu_tail_t *cu_tail_create (const char *file)
+ 		free (obj);
+ 		return (NULL);
+ 	}
+-
++	obj->disable_seek_end_on_new=0;
+ 	obj->fh = NULL;
+ 
+ 	return (obj);
+ } /* cu_tail_t *cu_tail_create */
+ 
++void cu_tail_disable_seek_end_on_newfile (cu_tail_t *obj)
++{
++	obj->disable_seek_end_on_new=1;
++}
++
++
+ int cu_tail_destroy (cu_tail_t *obj)
+ {
+ 	if (obj->fh != NULL)
+diff --git src/utils_tail.h src/utils_tail.h
+index c479319..1136193 100644
+--- src/utils_tail.h
++++ src/utils_tail.h
+@@ -45,6 +45,15 @@ typedef int tailfunc_t(void *data, char *buf, int buflen);
+ cu_tail_t *cu_tail_create (const char *file);
+ 
+ /*
++ *  cu_tail_disable_seek_on_newfile 
++ *
++ * set a feature needed to follow files rotated with apache rotatelogs utility
++ *
++ */
++
++void cu_tail_disable_seek_end_on_newfile (cu_tail_t *obj);
++
++/*
+  * cu_tail_destroy
+  *
+  * Takes a tail object returned by `cu_tail_create' and destroys it, freeing
+@@ -52,6 +61,7 @@ cu_tail_t *cu_tail_create (const char *file);
+  *
+  * Returns 0 when successful and non-zero otherwise.
+  */
++
+ int cu_tail_destroy (cu_tail_t *obj);
+ 
+ /*
