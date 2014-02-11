@@ -12,23 +12,24 @@ Build the new plugin
 * Download the collectd-apachelog-plugin pathc
 
 ```
- git clone https://github.com/toni-moreno/collectd-apachelog-plugin.git
+# git clone https://github.com/toni-moreno/collectd-apachelog-plugin.git
 ```
 
 * Download original collectd repository sources
 
 ```
-git clone https://github.com/collectd/collectd.git
+# git clone https://github.com/collectd/collectd.git
 ```
 
 * patch the original collectd source
 
 ```
- cd collectd
+# cd collectd
 
- mv ~/collectd-apachelog-plugin/apache_log_plugin_v0.1.patch .
- patch -p0 < apache_log_plugin_v0.1.patch
- mv ~/collectd-apachelog-plugin/apache-log.c ./src/
+# cp ~/collectd-apachelog-plugin/apache_log_plugin_v0.1.patch .
+# patch -p0 < apache_log_plugin_v0.1.patch
+# cp ~/collectd-apachelog-plugin/apache-log.c ./src/
+
 ```
 
 You can now rebuild collecd project.
