@@ -1,16 +1,31 @@
-diff --git configure.in configure.in
-index c4d9558..32194e7 100644
---- configure.in
-+++ configure.in
-@@ -5092,6 +5092,7 @@ m4_divert_once([HELP_ENABLE], [])
+diff --git README README
+index fa88f38..1191ace 100644
+--- README
++++ README
+@@ -19,6 +19,10 @@ Features
+       Apache server utilization: Number of bytes transfered, number of
+       requests handled and detailed scoreboard statistics
+ 
++    - apachelog
++      Apache log parser to get global and extended ( per HTTP CODE) hits count 
++      and response time, also supporting the rotatelogs tools
++
+     - apcups
+       APC UPS Daemon: UPS charge, load, input/output/battery voltage, etc.
+ 
+diff --git configure.ac configure.ac
+index f1c7b8a..e679a77 100644
+--- configure.ac
++++ configure.ac
+@@ -5110,6 +5110,7 @@ m4_divert_once([HELP_ENABLE], [])
  AC_PLUGIN([aggregation], [yes],                [Aggregation plugin])
  AC_PLUGIN([amqp],        [$with_librabbitmq],  [AMQP output plugin])
  AC_PLUGIN([apache],      [$with_libcurl],      [Apache httpd statistics])
-+AC_PLUGIN([apachelog],   [yes],      	       [Apache log])
++AC_PLUGIN([apachelog],   [yes],                [Apache log statistics])
  AC_PLUGIN([apcups],      [yes],                [Statistics of UPSes by APC])
  AC_PLUGIN([apple_sensors], [$with_libiokit],   [Apple's hardware sensors])
  AC_PLUGIN([aquaero],     [$with_libaquaero5],  [Aquaero's hardware sensors])
-@@ -5436,6 +5437,7 @@ Configuration:
+@@ -5455,6 +5456,7 @@ Configuration:
      aggregation . . . . . $enable_aggregation
      amqp    . . . . . . . $enable_amqp
      apache  . . . . . . . $enable_apache
@@ -19,7 +34,7 @@ index c4d9558..32194e7 100644
      aquaero . . . . . . . $enable_aquaero
      apple_sensors . . . . $enable_apple_sensors
 diff --git src/Makefile.am src/Makefile.am
-index 59454dc..e82de1f 100644
+index a9d8582..46798f8 100644
 --- src/Makefile.am
 +++ src/Makefile.am
 @@ -175,6 +175,19 @@ endif
@@ -43,10 +58,10 @@ index 59454dc..e82de1f 100644
  pkglib_LTLIBRARIES += apcups.la
  apcups_la_SOURCES = apcups.c
 diff --git src/types.db src/types.db
-index 3a5e207..9fb1322 100644
+index 97cc4cc..6030bab 100644
 --- src/types.db
 +++ src/types.db
-@@ -206,3 +206,4 @@ arc_ratio		value:GAUGE:0:U
+@@ -207,3 +207,4 @@ arc_ratio		value:GAUGE:0:U
  arc_size		current:GAUGE:0:U, target:GAUGE:0:U, minlimit:GAUGE:0:U, maxlimit:GAUGE:0:U
  mysql_qcache		hits:COUNTER:0:U, inserts:COUNTER:0:U, not_cached:COUNTER:0:U, lowmem_prunes:COUNTER:0:U, queries_in_cache:GAUGE:0:U
  mysql_threads		running:GAUGE:0:U, connected:GAUGE:0:U, cached:GAUGE:0:U, created:COUNTER:0:U
