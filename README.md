@@ -1,15 +1,40 @@
 collectd-apachelog-plugin
 =========================
 
-A plugin for collectd which efficiently parses apache log files to get global and extended ( per HTTP CODE) hits count and response time it also supports the rotatelogs tools
 
-You can add to collectd main project by only patching and 
+Description
+--------------
+
+A plugin for collectd which efficiently parses apache log files to get global and extended ( per HTTP CODE)  metrics. It defines a http_perf ( performance ) new type, which defines the new metrics.
+
+__hit_rate__ ( hits /second)
+__hit_x_interval__ ( #hits in the collectd interval time=> will be used to count hits across time )
+__rt_avg__  ( average response time in the elapsed interval time in "ms" )
+__rt_max__ ( max response time in the elapsed interval time in "ms")
+__rt_min__ ( min response time in the elapsed interval time in "ms")
+
+In extended mode gather performance statistics  for :
+
+* __global__ : all requests
+* __1XX__ : all HTTP 1XX code request
+* __2XX__ : all HTTP 2XX code request
+* __3XX__ : all HTTP 3XX code request
+* __4XX__: all HTTP 4XX code request
+* __5XX__: all HTTP 5XX code request
+
+
+It can parse apache logs and supports for rotatelogs tool ( by checking the last created file with a pattern)
+
 
 
 Build the new plugin
 ====================
 
-* Download the collectd-apachelog-plugin pathc
+You can add to collectd main project by only patching it ( until official pull will be accepted https://github.com/collectd/collectd/pull/576)
+
+
+
+* Download the collectd-apachelog-plugin patch
 
 ```
 # git clone https://github.com/toni-moreno/collectd-apachelog-plugin.git
@@ -93,6 +118,32 @@ LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\" %D" comb
 
 
 
+Customized configuration for Graphite/Collectd users 
+------------------------------------------------------------------
+
+Add these storage-aggregation rules the (/opt/graphite/conf/storage-aggregation.conf) file.
+
+```
+[http_perf_hits]
+pattern = \.hit_x_interval$
+xFilesFactor = 0.5
+aggregationMethod = sum
+
+[http_perf_rt_avg]
+pattern = \.rt_avg$
+xFilesFactor = 0
+aggregationMethod = avg
+
+[http_perf_rt_min]
+pattern = \.rt_min$
+xFilesFactor = 0
+aggregationMethod = min
+
+[http_perf_rt_max]
+pattern = \.rt_max$
+xFilesFactor = 0
+aggregationMethod = max
+```
 
 
 
