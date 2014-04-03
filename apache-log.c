@@ -86,7 +86,6 @@ struct cu_apachelog_s
   // basic metrics
 
   //unsigned int hits_count;
-  //unsigned int hits_total;
   //unsigned int response_time_max;
   //unsigned int response_time_min;
   //unsigned int response_time_sum;
@@ -103,7 +102,6 @@ struct cu_apachelog_s
 
 
   unsigned int httpxxx_hits_count[6]; 
-  unsigned int httpxxx_hits_total[6];
   unsigned int httpxxx_response_time_max[6];
   unsigned int httpxxx_response_time_min[6];
   unsigned int httpxxx_response_time_sum[6];
@@ -120,18 +118,19 @@ typedef struct cu_apachelog_s cu_apachelog_t;
 cu_apachelog_t **apachelog_list = NULL;
 size_t apachelog_list_num = 0;
 
-static void apachelog_submit_http_perf (char *apache_instance,const char *rename_plugin_as, char *type_instance,derive_t count, gauge_t max, gauge_t avg,gauge_t min)
+static void apachelog_submit_http_perf (char *apache_instance,const char *rename_plugin_as, char *type_instance,unsigned int count, gauge_t max, gauge_t avg,gauge_t min)
 {
-        value_t values[4];
+        value_t values[5];
         value_list_t vl = VALUE_LIST_INIT;
 
-	values[0].derive = count;
-        values[1].gauge = avg;
-	values[2].gauge = max;
-	values[3].gauge = min;
+	values[0].gauge = (gauge_t) count;  	// hit_x_interval
+	values[1].absolute = (absolute_t)count; // rate ( hits/second )
+        values[2].gauge = avg/1000.0;		// Response time (ms)
+	values[3].gauge = max/1000.0;		// Response time (ms)
+	values[4].gauge = min/1000.0;		// Response time (ms)
 
         vl.values = values;
-        vl.values_len = 4;
+        vl.values_len = 5;
         sstrncpy (vl.host, hostname_g, sizeof (vl.host));
 	if( rename_plugin_as != NULL )
 		ssnprintf (vl.plugin, sizeof (vl.plugin),"%s", rename_plugin_as);
@@ -226,8 +225,7 @@ void qs_mtime(char *dirname,struct dirent **namelist, int izq, int der)
 
 int file_select(const struct dirent *entry)
 {
-   // si retorna valor distinto de 0 se da por buena
-   //TODO: ARREGLAR UNA FUNCION QUE HAGA MATCHA
+   // if a different than 0 it is ok 
    if(fnmatch(apachelog_name_filter,entry->d_name,0)) return 0;
    return 1;
 }
@@ -245,7 +243,6 @@ char *get_last_apache_modified_file_from_pattern(char *filename_pattern)
  	 //get dirname
 	char *dirc=strdup(filename_pattern);
 	char *basec=strdup(filename_pattern);
-	//dirname=strdup(dirname(dirc));
 	dir_name=dirname(dirc);
 	
 	DEBUG("APACHELOG SCANDIR %s ",dir_name);
@@ -321,7 +318,6 @@ _Bool apachelog_test_rotation(cu_apachelog_t *tm)
 cu_apachelog_t *apachelog_create (const char *filename)
 {
   cu_apachelog_t *obj;
-  int i;
 
   DEBUG("tail match creating for file %s",filename);
   obj = (cu_apachelog_t *) malloc (sizeof (cu_apachelog_t));
@@ -332,8 +328,6 @@ cu_apachelog_t *apachelog_create (const char *filename)
   obj->use_rotatelogs=0;
   
  //metrics
-
-  for(i=0;i<6;i++) obj->httpxxx_hits_total[i]=0;
 
   obj->httpxxx_suffix[0]=strdup("global");
   obj->httpxxx_suffix[1]=strdup("1XX");
@@ -382,27 +376,24 @@ void apachelog_destroy (cu_apachelog_t *obj)
    for(i=0;i<6;i++) free(obj->httpxxx_suffix[i]);
 
 
-  if(obj->filename!=NULL) sfree(obj->filename);
-  if(obj->filename_pattern!=NULL) sfree(obj->filename_pattern);
+  sfree(obj->filename);
+  sfree(obj->filename_pattern);
   if (obj->tail != NULL)
   {
     cu_tail_destroy (obj->tail);
     obj->tail = NULL;
   }
-  if(obj->plugin_name != NULL) sfree (obj->plugin_name);
-  if(obj->plugin_instance != NULL) sfree (obj->plugin_instance);
-  if(obj->rename_plugin_as != NULL) sfree(obj->rename_plugin_as);
- if(obj->logline_ptr != NULL) free(obj->logline_ptr);
-  sfree (obj);
+  sfree(obj->plugin_name);
+  sfree(obj->plugin_instance);
+  sfree(obj->rename_plugin_as);
+  sfree(obj->logline_ptr);
+  sfree(obj);
 } /* void apachelog_destroy */
 
 
 static int capachelog_config_add_file (oconfig_item_t *ci)
 {
   cu_apachelog_t *tm;
- // char *plugin_instance = NULL;
- // char *rename_plugin_as = NULL;
- // int num_matches = 0;
   int status;
   int i;
 
@@ -551,19 +542,18 @@ static int apachelog_basic_split_callback (void *data, char *buf, int __attribut
 
   //DEBUG("APACHELOG : response time detected  :  %d",response_time_microsecs);
 
+/*
+  DEBUG("APACHELOG: NUMBER OF FIELDS %d ",n);
+  for (i=0;i<n; i++) {
+    DEBUG("APACHELOG: split 2 : %d : %s", i,line_ptr[i]);
+  }
+  free(line_ptr);*/
 
-  //DEBUG("APACHELOG: NUMBER OF FIELDS %d ",n);
-  //for (i=0;i<n; i++) {
-  //  DEBUG("APACHELOG: split 2 : %d : %s", i,line_ptr[i]);
-  //}
-  //free(line_ptr);
 
-
-    //if (response_time_microsecs==0) 
- //	DEBUG("APACHELOG : WARNING 0 TIME response time detected  : (int) %d |(ascii) %s | (http_request) %s",response_time_microsecs,response_time_string,buf);
+   /* if (response_time_microsecs==0) 
+ 	DEBUG("APACHELOG : WARNING 0 TIME response time detected  : (int) %d |(ascii) %s | (http_request) %s",response_time_microsecs,response_time_string,buf);*/
 
   obj->httpxxx_hits_count[0]++;
-  obj->httpxxx_hits_total[0]++;
   obj->httpxxx_response_time_sum[0]+=response_time_microsecs;
   obj->httpxxx_response_time_max[0]=max(obj->httpxxx_response_time_max[0],response_time_microsecs);
   obj->httpxxx_response_time_min[0]=min(obj->httpxxx_response_time_min[0],response_time_microsecs);
@@ -571,7 +561,7 @@ static int apachelog_basic_split_callback (void *data, char *buf, int __attribut
  
   return (0);
 
-}  // int apachelog_basix_split_callback 
+}  // int apachelog_basic_split_callback 
 
 
 static int apachelog_extended_split_callback (void *data, char *buf, int __attribute__((unused)) buflen)
@@ -609,7 +599,6 @@ static int apachelog_extended_split_callback (void *data, char *buf, int __attri
  //TOTAL
 
   obj->httpxxx_hits_count[0]++;
-  obj->httpxxx_hits_total[0]++;
   obj->httpxxx_response_time_sum[0]+=response_time_microsecs;
   obj->httpxxx_response_time_max[0]=max(obj->httpxxx_response_time_max[0],response_time_microsecs);
   obj->httpxxx_response_time_min[0]=min(obj->httpxxx_response_time_min[0],response_time_microsecs);
@@ -628,7 +617,6 @@ static int apachelog_extended_split_callback (void *data, char *buf, int __attri
   //PER HTTP CODE
 
   obj->httpxxx_hits_count[stat_pos]++;
-  obj->httpxxx_hits_total[stat_pos]++;
   obj->httpxxx_response_time_sum[stat_pos]+=response_time_microsecs;
   obj->httpxxx_response_time_max[stat_pos]=max(obj->httpxxx_response_time_max[stat_pos],response_time_microsecs);
   obj->httpxxx_response_time_min[stat_pos]=min(obj->httpxxx_response_time_min[stat_pos],response_time_microsecs);
@@ -733,7 +721,7 @@ int apachelog_read (cu_apachelog_t *obj)
   		apachelog_submit_http_perf (	obj->plugin_instance,
 						obj->rename_plugin_as,
 						obj->httpxxx_suffix[i],
-						(derive_t) obj->httpxxx_hits_total[i],
+						obj->httpxxx_hits_count[i],
 						(gauge_t) obj->httpxxx_response_time_max[i], 
 						(gauge_t)((double)obj->httpxxx_response_time_sum[i]/(double)obj->httpxxx_hits_count[i]),
 						(gauge_t) obj->httpxxx_response_time_min[i]);
@@ -741,7 +729,7 @@ int apachelog_read (cu_apachelog_t *obj)
 		apachelog_submit_http_perf( 	obj->plugin_instance,
 						obj->rename_plugin_as,
 						obj->httpxxx_suffix[i],
-						(derive_t) obj->httpxxx_hits_total[i],
+						obj->httpxxx_hits_count[i],
 						NAN,NAN,NAN);
   	}
   }
